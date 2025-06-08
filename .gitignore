@@ -1,0 +1,37 @@
+# Node modules
+node_modules/
+
+# Expo
+.expo/
+.expo-shared/
+
+# macOS
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+expo-debug.log
+
+# Environment files
+.env
+.env.*
+
+# Build output
+dist/
+build/
+web-build/
+
+# Misc
+*.log
+*.pem
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+
+# Metro bundler cache
+metro-cache/
+.cache/

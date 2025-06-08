@@ -1,0 +1,51 @@
+{
+  "modificadores": [
+    {
+      "id": 1,
+      "nome": "Coringa Ganancioso",
+      "descricao": "Ganha +20 de Pontos para cada carta de Ouros na mão.",
+      "imagem_url": "https://i.imgur.com/SYs1jB0.png",
+      "efeito": {
+        "tipo": "BONUS_POR_NAIPE",
+        "naipe": "ouros",
+        "valor": 20
+      }
+    },
+    {
+      "id": 2,
+      "nome": "Coringa de Aço",
+      "descricao": "Multiplica a pontuação final por 1.5x.",
+      "imagem_url": "https://i.imgur.com/L3n1n1Y.png",
+      "efeito": {
+        "tipo": "MULTIPLICADOR_FINAL",
+        "valor": 1.5
+      }
+    },
+    {
+      "id": 3,
+      "nome": "Coringa do Quarteto",
+      "descricao": "Adiciona +100 Pontos fixos se a mão for uma Quadra.",
+      "imagem_url": "https://i.imgur.com/x3eYyYg.png",
+      "efeito": {
+        "tipo": "BONUS_POR_JOGADA",
+        "jogada": "quadra",
+        "valor": 100
+      }
+    },
+    {
+      "id": 4,
+      "nome": "Coringa Preguiçoso",
+      "descricao": "Adiciona +50 Pontos fixos, não importa a mão.",
+      "imagem_url": "https://i.imgur.com/N8sS4n7.png",
+      "efeito": {
+        "tipo": "BONUS_PONTOS_FIXO",
+        "valor": 50
+      }
+    }
+  ],
+  "jogador": {
+    "id": 1,
+    "dinheiro": 100,
+    "modificadores_equipados": [1, 4]
+  }
+}
