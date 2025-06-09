@@ -1,10 +1,10 @@
 {
   "modificadores": [
     {
-      "id": 1,
+      "id": "1",
       "nome": "Coringa Ganancioso",
       "descricao": "Ganha +20 de Pontos para cada carta de Ouros na mão.",
-      "imagem_url": "https://i.imgur.com/SYs1jB0.png",
+      "imagem_url": "https://criticalhits.com.br/wp-content/uploads/2025/01/Scholar.jpg",
       "efeito": {
         "tipo": "BONUS_POR_NAIPE",
         "naipe": "ouros",
@@ -12,20 +12,20 @@
       }
     },
     {
-      "id": 2,
+      "id": "2",
       "nome": "Coringa de Aço",
       "descricao": "Multiplica a pontuação final por 1.5x.",
-      "imagem_url": "https://i.imgur.com/L3n1n1Y.png",
+      "imagem_url": "https://preview.redd.it/custom-jokers-v0-a0cnz5wugzvd1.jpg?width=640&crop=smart&auto=webp&s=42009f3bb421165044995a18ef6c63a92077b459",
       "efeito": {
         "tipo": "MULTIPLICADOR_FINAL",
         "valor": 1.5
       }
     },
     {
-      "id": 3,
+      "id": "3",
       "nome": "Coringa do Quarteto",
       "descricao": "Adiciona +100 Pontos fixos se a mão for uma Quadra.",
-      "imagem_url": "https://i.imgur.com/x3eYyYg.png",
+      "imagem_url": "https://preview.redd.it/the-forgotten-joker-give-your-own-ideas-in-the-comments-v0-i7talc9pmdxc1.png?auto=webp&s=ee681e90cf2a94001f6e92a06d4ce242c9f16ff4",
       "efeito": {
         "tipo": "BONUS_POR_JOGADA",
         "jogada": "quadra",
@@ -33,10 +33,10 @@
       }
     },
     {
-      "id": 4,
+      "id": "4",
       "nome": "Coringa Preguiçoso",
       "descricao": "Adiciona +50 Pontos fixos, não importa a mão.",
-      "imagem_url": "https://i.imgur.com/N8sS4n7.png",
+      "imagem_url": "https://criticalhits.com.br/wp-content/uploads/2025/01/Joker.jpg",
       "efeito": {
         "tipo": "BONUS_PONTOS_FIXO",
         "valor": 50
@@ -46,6 +46,18 @@
   "jogador": {
     "id": 1,
     "dinheiro": 100,
-    "modificadores_equipados": [1, 4]
+    "modificadores_comprados": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "modificadores_equipados": [
+      1
+    ],
+    "ante_atual": 1,
+    "meta_pontos": 300,
+    "maos_por_ante": 4,
+    "maos_restantes": 3
   }
 }
