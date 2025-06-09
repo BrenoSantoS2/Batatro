@@ -16,7 +16,6 @@ export interface Modificador {
 export interface Jogador {
   id: number;
   dinheiro: number;
-  modificadores_comprados: number[];
   modificadores_equipados: number[];
   ante_atual: number;
   meta_pontos: number;

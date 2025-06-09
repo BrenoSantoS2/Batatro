@@ -1,142 +1,103 @@
 // frontend/app/(tabs)/modificadores.tsx
-import React, { useState, useCallback } from "react";
-import {
-  StyleSheet,
-  Text,
-  View,
-  FlatList,
-  Image,
-  ActivityIndicator,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
-import { useFocusEffect } from "expo-router";
-import {
-  getModificadores,
-  getJogador,
-  updateJogador,
-} from "../../services/api";
-import { Modificador, Jogador } from "../../types/types";
+import React, { useState, useCallback } from 'react';
+import { StyleSheet, Text, View, FlatList, Image, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { getModificadores, getJogador, updateJogador } from '../../services/api';
+import { Modificador, Jogador } from '../../types/types';
 
 const MAX_EQUIPADOS = 3;
 
-// --- COMPONENTE DE ITEM DA LISTA (Separado para clareza) ---
-interface ModificadorItemProps {
-  item: Modificador;
-  jogador: Jogador | null;
-  onSelect: (id: number) => void;
-}
-
-const ModificadorItem: React.FC<ModificadorItemProps> = ({
-  item,
-  jogador,
-  onSelect,
-}) => {
-  // Se o jogador não "possui" o modificador, não renderiza nada.
-  // A '?? false' é uma segurança caso 'jogador' seja nulo.
-  const isComprado =
-    jogador?.modificadores_comprados.includes(item.id) ?? false;
-  if (!isComprado) {
-    return null;
-  }
-
-  const isEquipado =
-    jogador?.modificadores_equipados.includes(item.id) ?? false;
-
-  return (
-    <TouchableOpacity onPress={() => onSelect(item.id)}>
-      <View
-        style={[
-          styles.itemContainer,
-          isEquipado ? styles.itemEquipado : styles.itemNaoEquipado,
-        ]}
-      >
-        <Image source={{ uri: item.imagem_url }} style={styles.image} />
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>{item.nome}</Text>
-          <Text style={styles.description}>{item.descricao}</Text>
-        </View>
-        {isEquipado && <Text style={styles.equipadoText}>EQUIPADO</Text>}
+// O componente do item não precisa mudar, ele já está correto.
+const ModificadorItem: React.FC<{ item: Modificador; isEquipado: boolean; onSelect: (id: number) => void; }> = ({ item, isEquipado, onSelect }) => (
+  <TouchableOpacity onPress={() => onSelect(item.id)}>
+    <View style={[styles.itemContainer, isEquipado ? styles.itemEquipado : styles.itemNaoEquipado]}>
+      <Image source={{ uri: item.imagem_url }} style={styles.image} />
+      <View style={styles.textContainer}>
+        <Text style={styles.title}>{item.nome}</Text>
+        <Text style={styles.description}>{item.descricao}</Text>
       </View>
-    </TouchableOpacity>
-  );
-};
+      {isEquipado && <Text style={styles.equipadoText}>EQUIPADO</Text>}
+    </View>
+  </TouchableOpacity>
+);
 
 // --- TELA PRINCIPAL ---
 export default function TelaModificadores() {
-  const [todosModificadores, setTodosModificadores] = useState<Modificador[]>(
-    []
-  );
+  const [todosModificadores, setTodosModificadores] = useState<Modificador[]>([]);
   const [jogador, setJogador] = useState<Jogador | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // VERSÃO CORRIGIDA
+  // A forma CORRETA e SEGURA de carregar dados assíncronos em um Effect.
   useFocusEffect(
     useCallback(() => {
-      // A função async é definida DENTRO do callback
+      let isActive = true; // Flag para evitar atualização de estado em componente desmontado
+
       const carregarDados = async () => {
         setLoading(true);
         try {
-          const [mods, jog] = await Promise.all([
-            getModificadores(),
-            getJogador(),
-          ]);
-          setTodosModificadores(mods || []);
-          setJogador(jog);
+          const [mods, jog] = await Promise.all([getModificadores(), getJogador()]);
+          
+          if (isActive) { // Só atualiza o estado se o componente ainda estiver montado
+            setTodosModificadores(mods || []);
+            setJogador(jog);
+          }
         } catch (error) {
-          console.error(
-            "Erro ao carregar dados na tela de modificadores:",
-            error
-          );
+          console.error("Erro ao carregar dados na tela de modificadores:", error);
         } finally {
-          setLoading(false);
+          if (isActive) {
+            setLoading(false);
+          }
         }
       };
 
-      // E chamada imediatamente
       carregarDados();
-    }, []) // O array de dependências do useCallback continua vazio
+
+      return () => { // Função de limpeza
+        isActive = false;
+      };
+    }, [])
   );
 
   const handleSelectModificador = async (modId: number) => {
     if (!jogador) return;
 
-    const equipados = [...jogador.modificadores_equipados];
-    const isEquipado = equipados.includes(modId);
+    // Criamos uma cópia do array de IDs equipados para trabalhar de forma imutável
+    const equipadosAtuais = [...jogador.modificadores_equipados];
+    const isEquipado = equipadosAtuais.includes(modId);
 
     let novosEquipados: number[];
 
     if (isEquipado) {
-      novosEquipados = equipados.filter((id) => id !== modId);
+      // Remover: filtra o array para criar um NOVO array sem o ID
+      novosEquipados = equipadosAtuais.filter(id => id !== modId);
     } else {
-      if (equipados.length >= MAX_EQUIPADOS) {
-        Alert.alert(
-          "Limite Atingido",
-          `Você só pode equipar até ${MAX_EQUIPADOS} modificadores.`
-        );
+      // Adicionar: checa o limite
+      if (equipadosAtuais.length >= MAX_EQUIPADOS) {
+        Alert.alert("Limite Atingido", `Você só pode equipar até ${MAX_EQUIPADOS} modificadores.`);
         return;
       }
-      novosEquipados = [...equipados, modId];
+      // Cria um NOVO array com o novo ID adicionado
+      novosEquipados = [...equipadosAtuais, modId];
     }
-
-    // Atualiza o estado local primeiro para uma UI mais rápida
-    const jogadorParaAtualizar = {
-      ...jogador,
-      modificadores_equipados: novosEquipados,
+    
+    // Criamos um objeto de jogador COMPLETAMENTE NOVO
+    const jogadorAtualizado = { 
+      ...jogador, 
+      modificadores_equipados: novosEquipados 
     };
-    setJogador(jogadorParaAtualizar);
-
-    // Envia a atualização para o backend
-    await updateJogador(jogadorParaAtualizar);
+    
+    // 1. Atualizamos o estado local com o novo objeto (reatividade garantida)
+    setJogador(jogadorAtualizado);
+    
+    // 2. Enviamos o novo objeto para o backend
+    await updateJogador(jogadorAtualizado);
   };
-
-  // --- RENDERIZAÇÃO CONDICIONAL ---
-
-  if (loading) {
+  
+  if (loading || !jogador) {
     return (
       <View style={styles.centeredContainer}>
         <ActivityIndicator size="large" color="#3498db" />
-        <Text style={styles.loadingText}>Carregando Modificadores...</Text>
+        <Text style={styles.loadingText}>Carregando...</Text>
       </View>
     );
   }
@@ -144,92 +105,44 @@ export default function TelaModificadores() {
   return (
     <View style={styles.container}>
       <View style={styles.headerContainer}>
-        <Text style={styles.header}>Loja de Modificadores</Text>
+        <Text style={styles.header}>Selecione seus Modificadores</Text>
         <Text style={styles.subHeader}>
-          Equipados: {jogador?.modificadores_equipados.length || 0} /{" "}
-          {MAX_EQUIPADOS}
+          Equipados: {jogador.modificadores_equipados.length} / {MAX_EQUIPADOS}
         </Text>
       </View>
 
       <FlatList
         data={todosModificadores}
-        // A chave de cada item
         keyExtractor={(item) => item.id.toString()}
-        // Como renderizar cada item
         renderItem={({ item }) => (
-          <ModificadorItem
-            item={item}
-            jogador={jogador}
-            onSelect={handleSelectModificador}
+          <ModificadorItem 
+            item={item} 
+            isEquipado={jogador.modificadores_equipados.includes(item.id)}
+            onSelect={handleSelectModificador} 
           />
         )}
-        // Prop crucial: força a re-renderização quando o jogador muda
-        extraData={jogador}
-        // Estilo do container da lista
+        extraData={jogador.modificadores_equipados} // Essencial para a reatividade do highlight
         contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 20 }}
-        // Componente para mostrar se a lista estiver vazia
-        ListEmptyComponent={
-          <View style={styles.centeredContainer}>
-            <Text>Nenhum modificador encontrado.</Text>
-          </View>
-        }
+        ListEmptyComponent={<Text style={styles.loadingText}>Nenhum modificador disponível.</Text>}
       />
     </View>
   );
 }
 
-// --- ESTILOS ---
+// Estilos (sem alterações)
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f4f6f8" },
-  centeredContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: { marginTop: 10, fontSize: 16, color: "gray" },
-  headerContainer: {
-    padding: 20,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-  },
-  header: { fontSize: 24, fontFamily: "Lato_700Bold", textAlign: "center" },
-  subHeader: {
-    fontSize: 16,
-    fontFamily: "Lato_400Regular",
-    color: "gray",
-    textAlign: "center",
-    marginTop: 4,
-  },
-  itemContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 15,
-    marginVertical: 5,
-    borderRadius: 12,
-    borderWidth: 2,
-    backgroundColor: "#fff",
-  },
-  itemEquipado: {
-    borderColor: "#27ae60",
-    shadowColor: "#27ae60",
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  itemNaoEquipado: { borderColor: "#e0e0e0" },
-  image: { width: 60, height: 60, borderRadius: 8, marginRight: 15 },
-  textContainer: { flex: 1, justifyContent: "center" },
-  title: { fontSize: 18, fontFamily: "Lato_700Bold", color: "#333" },
-  description: {
-    fontSize: 14,
-    fontFamily: "Lato_400Regular",
-    color: "#666",
-    marginTop: 4,
-  },
-  equipadoText: {
-    color: "#27ae60",
-    fontFamily: "Lato_700Bold",
-    paddingHorizontal: 10,
-  },
+    container: { flex: 1, backgroundColor: '#f4f6f8' },
+    centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    loadingText: { marginTop: 10, fontSize: 16, color: 'gray' },
+    headerContainer: { padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+    header: { fontSize: 24, fontFamily: 'Lato_700Bold', textAlign: 'center' },
+    subHeader: { fontSize: 16, fontFamily: 'Lato_400Regular', color: 'gray', textAlign: 'center', marginTop: 4 },
+    itemContainer: { flexDirection: 'row', alignItems: 'center', padding: 15, marginVertical: 5, borderRadius: 12, borderWidth: 2, backgroundColor: '#fff' },
+    itemEquipado: { borderColor: '#27ae60', shadowColor: "#27ae60", shadowOpacity: 0.4, shadowRadius: 5, elevation: 5, },
+    itemNaoEquipado: { borderColor: '#e0e0e0' },
+    image: { width: 60, height: 60, borderRadius: 8, marginRight: 15 },
+    textContainer: { flex: 1, justifyContent: 'center' },
+    title: { fontSize: 18, fontFamily: 'Lato_700Bold', color: '#333' },
+    description: { fontSize: 14, fontFamily: 'Lato_400Regular', color: '#666', marginTop: 4 },
+    equipadoText: { color: '#27ae60', fontFamily: 'Lato_700Bold', paddingHorizontal: 10 }
 });

@@ -10,10 +10,9 @@ import { Modificador, Jogador } from "@/types/types";
 const ESTADO_INICIAL_JOGADOR: Jogador = {
   id: 1,
   dinheiro: 100,
-  modificadores_comprados: [1, 2, 3, 4],
-  modificadores_equipados: [1],
+  modificadores_equipados: [0],
   ante_atual: 1,
-  meta_pontos: 300,
+  meta_pontos: 100,
   maos_por_ante: 4,
   maos_restantes: 4,
 };
@@ -136,7 +135,7 @@ export const useGameLogic = () => {
     if (pontuacao >= jogador.meta_pontos) {
       // VENCEU O ANTE!
       const proximoAnte = jogador.ante_atual + 1;
-      const proximaMeta = Math.floor(jogador.meta_pontos * 1.8);
+      const proximaMeta = Math.floor(jogador.meta_pontos * 1.5);
       const jogadorAtualizado = {
         ...jogador,
         ante_atual: proximoAnte,

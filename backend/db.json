@@ -45,19 +45,15 @@
   ],
   "jogador": {
     "id": 1,
-    "dinheiro": 100,
-    "modificadores_comprados": [
-      1,
-      2,
-      3,
-      4
-    ],
+    "dinheiro": 130,
     "modificadores_equipados": [
-      1
+      "2",
+      "1",
+      "4"
     ],
-    "ante_atual": 1,
-    "meta_pontos": 300,
+    "ante_atual": 4,
+    "meta_pontos": 337,
     "maos_por_ante": 4,
-    "maos_restantes": 3
+    "maos_restantes": 1
   }
 }
