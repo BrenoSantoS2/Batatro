@@ -1,168 +1,118 @@
 // frontend/app/(tabs)/jogo.tsx
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Button, ActivityIndicator } from 'react-native';
-import { Carta, gerarMao } from '../../utils/baralho';
-import { analisarMao } from '../../utils/pontuacao';
-import { getJogador, getModificadores } from '../../services/api';
-import { Modificador } from '../../types/types';
-import CartaView from '@/components/CartaView';
+import React, { useState } from 'react';
+import { StyleSheet, ActivityIndicator, View, Text } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts, Lato_400Regular, Lato_700Bold } from '@expo-google-fonts/lato';
+
+import { useGameLogic } from '@/hooks/MyHooks/useGameLogic';
+import { useGameAnimations } from '@/hooks/MyHooks/useGameAnimations';
+import { ObjectiveDisplay } from '@/components/MyComponents/ObjectiveDisplay';
+import { ActiveModifiers } from '@/components/MyComponents/ActiveModifiers';
+import { HandDisplay } from '@/components/MyComponents/HandDisplay';
+import { ScoreDisplay } from '@/components/MyComponents/ScoreDisplay';
+import { ActionButtons } from '@/components/MyComponents/ActionButtons';
+import { GameAnimations } from '@/components/MyComponents/GameAnimations';
+import { StyledButton } from '@/components/MyComponents/StyledButton'; 
 
 export default function TelaJogo() {
-  const [mao, setMao] = useState<Carta[]>([]);
-  const [pontuacao, setPontuacao] = useState(0);
-  const [modificadoresAtivos, setModificadoresAtivos] = useState<Modificador[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [jogadaFeita, setJogadaFeita] = useState('');
+  const { mao, pontuacao, modificadoresAtivos, jogador, loading, isGameOver, jogarMao, descartarMao, reiniciarJogo } = useGameLogic();
+  const { confettiRef, jogadaAnimatedStyle, triggerAnimations } = useGameAnimations();
+  
+  const [fontsLoaded] = useFonts({ Lato_400Regular, Lato_700Bold });
 
-  // Efeito para carregar dados iniciais (mão e modificadores do jogador)
-  useEffect(() => {
-    const carregarDadosIniciais = async () => {
-      setLoading(true);
-      // Pega os dados do jogador e todos os modificadores disponíveis
-      const jogadorData = await getJogador();
-      const todosModificadores = await getModificadores();
-
-      if (jogadorData && todosModificadores.length > 0) {
-        // Filtra a lista de todos os modificadores para pegar só os que o jogador tem
-        const equipados = todosModificadores.filter(mod => 
-          jogadorData.modificadores_equipados.includes(mod.id)
-        );
-        setModificadoresAtivos(equipados);
-      }
-      
-      setMao(gerarMao());
-      setLoading(false);
-    };
-
-    carregarDadosIniciais();
-  }, []);
-
-  const novaMao = () => {
-    setMao(gerarMao());
-    setPontuacao(0);
+  const handleJogarMao = async () => {
+    const { resultadoBase, venceu } = await jogarMao();
+    if (resultadoBase.nomeJogada !== 'carta-alta') {
+      const nomeJogada = (venceu ? "ANTE VENCIDO! " : "") + resultadoBase.nomeJogada.replace('-', ' ').toUpperCase();
+      setJogadaFeita(nomeJogada);
+      triggerAnimations(resultadoBase);
+    } else if (venceu) {
+      setJogadaFeita("ANTE VENCIDO!");
+      triggerAnimations(resultadoBase);
+    }
   };
 
-  const calcularPontuacao = () => {
-    // 1. Análise base da mão para obter pontos e multiplicador
-    const resultadoBase = analisarMao(mao);
-    let pontos = resultadoBase.pontosBase;
-    let multiplicador = resultadoBase.multiplicadorBase;
-
-    console.log(`Jogada Base: ${resultadoBase.nomeJogada}, Pontos: ${pontos}, Multiplicador: ${multiplicador}`);
-
-    // 2. Aplicar efeitos dos modificadores
-    modificadoresAtivos.forEach(mod => {
-      console.log(`Aplicando modificador: ${mod.nome}`);
-      const efeito = mod.efeito;
-
-      switch (efeito.tipo) {
-        case 'BONUS_PONTOS_FIXO':
-          pontos += efeito.valor;
-          console.log(`  +${efeito.valor} pontos (total: ${pontos})`);
-          break;
-        
-        case 'BONUS_POR_NAIPE':
-          const contagemNaipe = mao.filter(c => c.naipe === efeito.naipe).length;
-          const bonusNaipe = contagemNaipe * efeito.valor;
-          pontos += bonusNaipe;
-          console.log(`  Encontradas ${contagemNaipe} cartas de ${efeito.naipe}. Bonus de +${bonusNaipe} pontos (total: ${pontos})`);
-          break;
-
-        case 'BONUS_POR_JOGADA':
-          if (resultadoBase.nomeJogada === efeito.jogada) {
-            pontos += efeito.valor;
-            console.log(`  Bonus de jogada '${efeito.jogada}' aplicado. +${efeito.valor} pontos (total: ${pontos})`);
-          }
-          break;
-        
-        case 'MULTIPLICADOR_FINAL':
-          multiplicador *= efeito.valor;
-          console.log(`  Multiplicador aumentado para x${multiplicador}`);
-          break;
-      }
-    });
-
-    // 3. Cálculo final e atualização do estado
-    const pontuacaoFinal = Math.round(pontos * multiplicador);
-    setPontuacao(pontuacaoFinal);
-    console.log(`Pontuação Final: ${pontos} * ${multiplicador} = ${pontuacaoFinal}`);
-  };
-
-  if (loading) {
-    return <ActivityIndicator size="large" style={styles.container} />;
+  if (loading || !fontsLoaded) {
+    return (
+      <LinearGradient colors={['#2c3e50', '#3498db']} style={styles.container}>
+        <ActivityIndicator size="large" color="#fff" />
+      </LinearGradient>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <View>
-        <Text style={styles.title}>Modificadores Ativos</Text>
-        <View style={styles.modificadoresContainer}>
-          {modificadoresAtivos.map(mod => (
-            <Text key={mod.id} style={styles.modificadorText}>• {mod.nome}</Text>
-          ))}
+    <LinearGradient 
+      colors={isGameOver ? ['#7d0c0c', '#3d0606'] : ['#2c3e50', '#3498db']} 
+      style={styles.container}
+    >
+      {isGameOver ? (
+        // TELA DE GAME OVER
+        <View style={styles.gameOverContainer}>
+          <Text style={styles.gameOverTitle}>FIM DE JOGO</Text>
+          <Text style={styles.gameOverSubTitle}>Você chegou ao Ante {jogador.ante_atual}</Text>
+          <StyledButton title="Reiniciar Jogo" onPress={reiniciarJogo} type="primary" />
         </View>
-      </View>
+      ) : (
+        // TELA PRINCIPAL DO JOGO
+        <>
+          <View style={styles.topArea}>
+            <ObjectiveDisplay ante={jogador.ante_atual} meta={jogador.meta_pontos} maosRestantes={jogador.maos_restantes} />
+            <ActiveModifiers modificadores={modificadoresAtivos} />
+          </View>
 
-      <View>
-        <Text style={styles.title}>Sua Mão</Text>
-        <View style={styles.maoContainer}>
-          {mao.map((carta, index) => <CartaView key={index} carta={carta} />)}
-        </View>
-      </View>
+          <View style={styles.centerArea}>
+            <HandDisplay mao={mao} />
+          </View>
+          
+          <View style={styles.bottomArea}>
+            <ScoreDisplay pontuacao={pontuacao} />
+            <ActionButtons onJogar={handleJogarMao} onDescartar={descartarMao} podeDescartar={jogador.maos_restantes > 1} />
+          </View>
 
-      <View style={styles.pontuacaoContainer}>
-        <Text style={styles.pontuacaoLabel}>Pontuação</Text>
-        <Text style={styles.pontuacaoValor}>{pontuacao}</Text>
-      </View>
-
-      <View style={styles.botoesContainer}>
-        <Button title="Calcular Pontuação" onPress={calcularPontuacao} />
-        <View style={{ marginVertical: 5 }} /> 
-        <Button title="Comprar Nova Mão" onPress={novaMao} color="#841584" />
-      </View>
-    </View>
+          <GameAnimations confettiRef={confettiRef} jogada={jogadaFeita} style={jogadaAnimatedStyle} />
+        </>
+      )}
+    </LinearGradient>
   );
 }
 
-// ATENÇÃO: Adicione os novos estilos!
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between', // Altera para space-between para empurrar para as bordas
+    paddingVertical: 40, // Adiciona padding vertical
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center',
+  topArea: {
+    width: '100%',
+    alignItems: 'center',
   },
-  modificadoresContainer: {
-    padding: 10,
-    backgroundColor: '#e0e0e0',
-    borderRadius: 8,
-    marginBottom: 20,
+  centerArea: {
+    // Esta área pode crescer ou encolher, o justify-content cuidará do espaço
   },
-  modificadorText: {
-    fontSize: 16,
+  bottomArea: {
+    width: '100%',
+    alignItems: 'center',
   },
-  maoContainer: {
-    flexDirection: 'row',
+  gameOverContainer: { 
+    flex: 1, 
+    alignItems: 'center', 
     justifyContent: 'center',
+    paddingHorizontal: 20,
   },
-  pontuacaoContainer: {
-    alignItems: 'center',
+  gameOverTitle: { 
+    fontFamily: 'Lato_700Bold', 
+    fontSize: 48, 
+    color: '#fff', 
+    textTransform: 'uppercase',
+    textAlign: 'center',
+    marginBottom: 10,
   },
-  pontuacaoLabel: {
-    fontSize: 20,
-    color: '#666',
-  },
-  pontuacaoValor: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#000',
-  },
-  botoesContainer: {
-    width: '80%',
+  gameOverSubTitle: { 
+    fontFamily: 'Lato_400Regular', 
+    fontSize: 20, 
+    color: '#ecf0f1', 
+    marginBottom: 40,
   },
 });

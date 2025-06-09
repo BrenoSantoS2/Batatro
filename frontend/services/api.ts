@@ -14,9 +14,16 @@ const apiClient = axios.create({
 export const getModificadores = async (): Promise<Modificador[]> => {
   try {
     const response = await apiClient.get('/modificadores');
+    console.log("SUCCESS: Modificadores recebidos da API:", response.data); // Log de sucesso
     return response.data;
   } catch (error) {
-    console.error('Erro ao buscar modificadores:', error);
+    if (axios.isAxiosError(error)) {
+      // Log detalhado para erros do Axios
+      console.error('ERRO AXIOS ao buscar modificadores:', error.toJSON());
+    } else {
+      // Log para outros tipos de erro
+      console.error('ERRO GENÉRICO ao buscar modificadores:', error);
+    }
     return []; 
   }
 };
@@ -24,9 +31,24 @@ export const getModificadores = async (): Promise<Modificador[]> => {
 export const getJogador = async (): Promise<Jogador | null> => {
   try {
     const response = await apiClient.get('/jogador');
-    return response.data; 
+    console.log("SUCCESS: Jogador recebido da API:", response.data); // Log de sucesso
+    return response.data;
   } catch (error) {
-    console.error('Erro ao buscar dados do jogador:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('ERRO AXIOS ao buscar jogador:', error.toJSON());
+    } else {
+      console.error('ERRO GENÉRICO ao buscar jogador:', error);
+    }
+    return null;
+  }
+};
+
+export const updateJogador = async (jogadorData: Jogador): Promise<Jogador | null> => {
+  try {
+    const response = await apiClient.put('/jogador', jogadorData);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao atualizar dados do jogador:', error);
     return null;
   }
 };

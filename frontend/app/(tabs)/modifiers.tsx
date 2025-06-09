@@ -1,100 +1,235 @@
 // frontend/app/(tabs)/modificadores.tsx
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, FlatList, Image, ActivityIndicator } from 'react-native';
-import { getModificadores } from '../../services/api'; // Importamos nossa função
-import { Modificador } from '../../types/types'; // E nosso tipo
+import React, { useState, useCallback } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  FlatList,
+  Image,
+  ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
+import { useFocusEffect } from "expo-router";
+import {
+  getModificadores,
+  getJogador,
+  updateJogador,
+} from "../../services/api";
+import { Modificador, Jogador } from "../../types/types";
 
+const MAX_EQUIPADOS = 3;
+
+// --- COMPONENTE DE ITEM DA LISTA (Separado para clareza) ---
+interface ModificadorItemProps {
+  item: Modificador;
+  jogador: Jogador | null;
+  onSelect: (id: number) => void;
+}
+
+const ModificadorItem: React.FC<ModificadorItemProps> = ({
+  item,
+  jogador,
+  onSelect,
+}) => {
+  // Se o jogador não "possui" o modificador, não renderiza nada.
+  // A '?? false' é uma segurança caso 'jogador' seja nulo.
+  const isComprado =
+    jogador?.modificadores_comprados.includes(item.id) ?? false;
+  if (!isComprado) {
+    return null;
+  }
+
+  const isEquipado =
+    jogador?.modificadores_equipados.includes(item.id) ?? false;
+
+  return (
+    <TouchableOpacity onPress={() => onSelect(item.id)}>
+      <View
+        style={[
+          styles.itemContainer,
+          isEquipado ? styles.itemEquipado : styles.itemNaoEquipado,
+        ]}
+      >
+        <Image source={{ uri: item.imagem_url }} style={styles.image} />
+        <View style={styles.textContainer}>
+          <Text style={styles.title}>{item.nome}</Text>
+          <Text style={styles.description}>{item.descricao}</Text>
+        </View>
+        {isEquipado && <Text style={styles.equipadoText}>EQUIPADO</Text>}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// --- TELA PRINCIPAL ---
 export default function TelaModificadores() {
-  const [modificadores, setModificadores] = useState<Modificador[]>([]);
+  const [todosModificadores, setTodosModificadores] = useState<Modificador[]>(
+    []
+  );
+  const [jogador, setJogador] = useState<Jogador | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const carregarDados = async () => {
-      try {
-        const dados = await getModificadores();
-        setModificadores(dados);
-      } catch (error) {
-        // O erro já é logado no nosso serviço de api
-        // Aqui poderíamos mostrar uma mensagem de erro na tela
-      } finally {
-        setLoading(false);
+  // VERSÃO CORRIGIDA
+  useFocusEffect(
+    useCallback(() => {
+      // A função async é definida DENTRO do callback
+      const carregarDados = async () => {
+        setLoading(true);
+        try {
+          const [mods, jog] = await Promise.all([
+            getModificadores(),
+            getJogador(),
+          ]);
+          setTodosModificadores(mods || []);
+          setJogador(jog);
+        } catch (error) {
+          console.error(
+            "Erro ao carregar dados na tela de modificadores:",
+            error
+          );
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // E chamada imediatamente
+      carregarDados();
+    }, []) // O array de dependências do useCallback continua vazio
+  );
+
+  const handleSelectModificador = async (modId: number) => {
+    if (!jogador) return;
+
+    const equipados = [...jogador.modificadores_equipados];
+    const isEquipado = equipados.includes(modId);
+
+    let novosEquipados: number[];
+
+    if (isEquipado) {
+      novosEquipados = equipados.filter((id) => id !== modId);
+    } else {
+      if (equipados.length >= MAX_EQUIPADOS) {
+        Alert.alert(
+          "Limite Atingido",
+          `Você só pode equipar até ${MAX_EQUIPADOS} modificadores.`
+        );
+        return;
       }
+      novosEquipados = [...equipados, modId];
+    }
+
+    // Atualiza o estado local primeiro para uma UI mais rápida
+    const jogadorParaAtualizar = {
+      ...jogador,
+      modificadores_equipados: novosEquipados,
     };
+    setJogador(jogadorParaAtualizar);
 
-    carregarDados();
-  }, []); // O array vazio significa que este efeito roda apenas uma vez, quando o componente monta
+    // Envia a atualização para o backend
+    await updateJogador(jogadorParaAtualizar);
+  };
 
-  // Se estiver carregando, mostra um indicador
+  // --- RENDERIZAÇÃO CONDICIONAL ---
+
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color="#0000ff" />
+      <View style={styles.centeredContainer}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Carregando Modificadores...</Text>
       </View>
     );
   }
 
-  // Renderiza um item da lista
-  const renderItem = ({ item }: { item: Modificador }) => (
-    <View style={styles.itemContainer}>
-      <Image source={{ uri: item.imagem_url }} style={styles.image} />
-      <View style={styles.textContainer}>
-        <Text style={styles.title}>{item.nome}</Text>
-        <Text style={styles.description}>{item.descricao}</Text>
-      </View>
-    </View>
-  );
-
   return (
     <View style={styles.container}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.header}>Loja de Modificadores</Text>
+        <Text style={styles.subHeader}>
+          Equipados: {jogador?.modificadores_equipados.length || 0} /{" "}
+          {MAX_EQUIPADOS}
+        </Text>
+      </View>
+
       <FlatList
-        data={modificadores}
-        renderItem={renderItem}
+        data={todosModificadores}
+        // A chave de cada item
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ padding: 10 }}
+        // Como renderizar cada item
+        renderItem={({ item }) => (
+          <ModificadorItem
+            item={item}
+            jogador={jogador}
+            onSelect={handleSelectModificador}
+          />
+        )}
+        // Prop crucial: força a re-renderização quando o jogador muda
+        extraData={jogador}
+        // Estilo do container da lista
+        contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 20 }}
+        // Componente para mostrar se a lista estiver vazia
+        ListEmptyComponent={
+          <View style={styles.centeredContainer}>
+            <Text>Nenhum modificador encontrado.</Text>
+          </View>
+        }
       />
     </View>
   );
 }
 
+// --- ESTILOS ---
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1, backgroundColor: "#f4f6f8" },
+  centeredContainer: {
     flex: 1,
-    backgroundColor: '#f0f0f0',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  center: {
-    justifyContent: 'center',
-    alignItems: 'center',
+  loadingText: { marginTop: 10, fontSize: 16, color: "gray" },
+  headerContainer: {
+    padding: 20,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  },
+  header: { fontSize: 24, fontFamily: "Lato_700Bold", textAlign: "center" },
+  subHeader: {
+    fontSize: 16,
+    fontFamily: "Lato_400Regular",
+    color: "gray",
+    textAlign: "center",
+    marginTop: 4,
   },
   itemContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 15,
-    marginBottom: 10,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    elevation: 3, // Sombra no Android
-    shadowColor: '#000', // Sombra no iOS
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    marginVertical: 5,
+    borderRadius: 12,
+    borderWidth: 2,
+    backgroundColor: "#fff",
   },
-  image: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-    marginRight: 15,
+  itemEquipado: {
+    borderColor: "#27ae60",
+    shadowColor: "#27ae60",
+    shadowOpacity: 0.4,
+    shadowRadius: 5,
+    elevation: 5,
   },
-  textContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
+  itemNaoEquipado: { borderColor: "#e0e0e0" },
+  image: { width: 60, height: 60, borderRadius: 8, marginRight: 15 },
+  textContainer: { flex: 1, justifyContent: "center" },
+  title: { fontSize: 18, fontFamily: "Lato_700Bold", color: "#333" },
   description: {
     fontSize: 14,
-    color: '#666',
+    fontFamily: "Lato_400Regular",
+    color: "#666",
     marginTop: 4,
+  },
+  equipadoText: {
+    color: "#27ae60",
+    fontFamily: "Lato_700Bold",
+    paddingHorizontal: 10,
   },
 });
