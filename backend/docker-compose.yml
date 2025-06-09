@@ -1,0 +1,67 @@
+# backend/docker-compose.yml
+version: '3.8'
+
+services:
+  # Serviço do Banco de Dados PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: balatro-db
+    restart: always
+    environment:
+      POSTGRES_USER: balatro_user
+      POSTGRES_PASSWORD: balatro_password
+      POSTGRES_DB: balatro_db
+    ports:
+      # Expõe a porta do DB para o host na 5432, para podermos conectar com um cliente de DB se quisermos
+      - "5432:5432"
+    volumes:
+      # Persiste os dados do banco na pasta local, para não perdermos tudo se o contêiner parar
+      - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - balatro-net
+
+  # Serviço do Cache Redis
+  redis:
+    image: redis:7-alpine
+    container_name: balatro-cache
+    restart: always
+    networks:
+      - balatro-net
+
+  # Serviço da nossa API
+  api:
+    # 'build: ./api' diz ao Docker para construir a imagem usando o Dockerfile da pasta ./api
+    build: ./api
+    # 'depends_on' garante que o banco e o cache iniciem antes da API
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      # Passa as variáveis de ambiente para a nossa API se conectar aos outros serviços
+      DATABASE_URL: "postgresql://balatro_user:balatro_password@postgres:5432/balatro_db"
+      REDIS_URL: "redis://redis:6379"
+      PORT: "3000"
+    networks:
+      - balatro-net
+    # A seção 'deploy' é usada pelo Docker Compose para escalar o serviço
+    deploy:
+      replicas: 3 # <-- ESCALABILIDADE HORIZONTAL: Inicia 3 instâncias da nossa API!
+
+  # Serviço do Load Balancer NGINX
+  nginx:
+    build: ./nginx
+    container_name: balatro-lb
+    restart: always
+    ports:
+      # A porta 80 do NGINX (dentro do contêiner) é mapeada para a porta 8080 do nosso computador.
+      # Usamos 8080 para evitar conflitos com outros serviços que possam estar usando a 80.
+      - "8080:80"
+    depends_on:
+      - api
+    networks:
+      - balatro-net
+
+# Define a rede privada onde nossos contêineres vão se comunicar
+networks:
+  balatro-net:
+    driver: bridge

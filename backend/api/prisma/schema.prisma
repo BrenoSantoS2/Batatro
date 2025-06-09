@@ -1,0 +1,31 @@
+// backend/api/prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Nossos Modelos de Dados ---
+
+model Modificador {
+  id          Int      @id @default(autoincrement())
+  nome        String   @unique
+  descricao   String
+  imagem_url  String
+  
+  // Efeito é um dado complexo, vamos armazená-lo como JSON
+  efeito      Json
+}
+
+model Jogador {
+  id                     Int      @id @default(1)
+  dinheiro               Int
+  modificadores_equipados Int[]    // PostgreSQL suporta arrays de inteiros nativamente!
+  ante_atual             Int
+  meta_pontos            Int
+  maos_por_ante          Int
+  maos_restantes         Int
+}
