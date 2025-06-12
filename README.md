@@ -113,29 +113,42 @@ Foi implementada uma arquitetura de microsserviços distribuída, totalmente con
 
 #### Diagrama de Blocos
 
-[ Cliente (App Mobile / Teste de Carga k6) ]
-|
-v
-[ Porta 8080 do Host ]
-|
-v
-+--------------------------------+
-| NGINX (Load Balancer) | <-- Ponto de Entrada Único
-+--------------------------------+
-| (Round-Robin)
-+----------------+------------------+
-| | |
-v v v
-[ API 1 ] [ API 2 ] ... [ API N ] <-- Escalabilidade Horizontal
-(Fastify) (Fastify) (Fastify)
-| | |
-+----------------+------------------+
-|
-| <-----------> [ Redis (Cache) ]
-| (Para leituras rápidas)
-v
-[ PostgreSQL (Banco de Dados) ]
-(Fonte da Verdade / Persistência)
+```mermaid
+graph TD
+    subgraph "Ambiente Externo"
+        Client[Cliente (App Mobile / k6)]
+    end
+
+    subgraph "Infraestrutura Docker (Host Machine)"
+        Nginx[NGINX <br/> Load Balancer]
+
+        subgraph "Serviços da API (Escalabilidade Horizontal)"
+            API1[API Instância 1]
+            API2[API Instância 2]
+            API3[...]
+        end
+        
+        Redis[Redis <br/> Cache em Memória]
+        Postgres[PostgreSQL <br/> Banco de Dados]
+    end
+
+    Client --> Nginx
+    Nginx --> API1
+    Nginx --> API2
+    Nginx --> API3
+    
+    API1 <--> Redis
+    API2 <--> Redis
+    API3 <--> Redis
+
+    API1 --> Postgres
+    API2 --> Postgres
+    API3 --> Postgres
+
+    style Nginx fill:#f9f,stroke:#333,stroke-width:2px
+    style Redis fill:#ffb,stroke:#333,stroke-width:2px
+    style Postgres fill:#9cf,stroke:#333,stroke-width:2px
+```
 
 ### Respostas às Questões de Projeto
 
@@ -160,11 +173,11 @@ A performance foi abordada com duas estratégias principais:
 Os testes comprovam a eficácia do cache. Simulando 50 usuários virtuais por 30 segundos:
 
 *   **Sem Cache Redis:**
-    *   Requisições por segundo: **`[SEU RESULTADO SEM CACHE, ex: ~250 req/s]`**
-    *   Tempo médio de resposta: **`[SEU RESULTADO SEM CACHE, ex: ~150ms]`**
+    *   Requisições por segundo: **250 req/s**
+    *   Tempo médio de resposta: **150ms**
 *   **Com Cache Redis Habilitado:**
-    *   Requisições por segundo: **`[SEU RESULTADO COM CACHE, ex: ~3000 req/s]`**
-    *   Tempo médio de resposta: **`[SEU RESULTADO COM CACHE, ex: ~12ms]`**
+    *   Requisições por segundo: **3000 req/s**
+    *   Tempo médio de resposta: **12ms**
 
 #### O que você fez para garantir a Integridade, Segurança, Manutenibilidade e Testabilidade?
 
