@@ -1,4 +1,4 @@
-import { getRedisClient } from '../redis'; // Importa a função gerenciadora
+import { getRedisClient } from '../redis';
 
 import * as modificadorRepository from '../repositories/modificador.repository';
 const CACHE_KEY = 'modificadores';
