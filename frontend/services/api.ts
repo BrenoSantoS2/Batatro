@@ -2,7 +2,7 @@
 import axios from 'axios';
 import { Modificador, Jogador } from '../types/types'; // Importamos nosso tipo!
 
-const API_BASE_URL = 'http://10.254.19.51:4000'; // Troque SEU_IP_LOCAL pelo seu endereço IP
+const API_BASE_URL = 'http://10.254.18.169:4000'; // Troque SEU_IP_LOCAL pelo seu endereço IP
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

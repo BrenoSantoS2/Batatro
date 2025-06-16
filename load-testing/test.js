@@ -7,8 +7,8 @@ export const options = {
   // Define os estágios do nosso teste de carga.
   // Isso simula um aumento gradual de usuários.
   stages: [
-    { duration: '10s', target: 20 }, // Aumenta para 20 usuários virtuais em 10 segundos
-    { duration: '30s', target: 50 }, // Aumenta para 50 usuários virtuais nos próximos 30 segundos
+    { duration: '10s', target: 100 }, // Aumenta para 20 usuários virtuais em 10 segundos
+    { duration: '30s', target: 500 }, // Aumenta para 50 usuários virtuais nos próximos 30 segundos
     { duration: '10s', target: 0 },  // Diminui de volta para 0 usuários
   ],
   // Define os "thresholds" ou limites de aceitação.
