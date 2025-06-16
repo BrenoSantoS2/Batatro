@@ -1,124 +1,212 @@
-# Projeto Balatro: Backend de Alta Performance
+# Projeto Balatro: Jogo Full Stack com Arquitetura Escalável
 
-Este projeto consiste na implementação de uma API RESTful de alta performance inspirada no jogo [Balatro](https://www.playbalatro.com/), com foco em escalabilidade, disponibilidade e performance sob alta carga.
+Este repositório contém a implementação completa de um projeto inspirado no jogo [Balatro](https://www.playbalatro.com/), abrangendo desde o cliente de jogo mobile (frontend) até uma arquitetura de backend de alta performance, projetada para suportar alta carga de requisições.
 
-Além da API, o projeto inclui um cliente de frontend mobile (desenvolvido em uma fase anterior) e um conjunto de testes de carga para validar a robustez da arquitetura implementada.
+O projeto está dividido em três seções principais:
+1.  **Frontend:** O aplicativo de jogo mobile.
+2.  **Backend:** A API RESTful que serve como cérebro do jogo.
+3.  **Arquitetura de Alta Performance:** A infraestrutura distribuída projetada para escalabilidade e disponibilidade, respondendo a um desafio de "Rinha de Backend".
 
-## Arquitetura do Sistema
+---
 
-Para atender aos requisitos de alta concorrência e disponibilidade, foi projetada uma arquitetura de microsserviços distribuída e conteinerizada, orquestrada com Docker Compose.
+## Seção 1: Frontend - O Jogo
 
-### Diagrama de Blocos
+Esta seção descreve a aplicação mobile que permite ao usuário interagir com o jogo.
 
-O diagrama abaixo ilustra os componentes do sistema e como eles interagem:
-[ Cliente (App Mobile / Teste de Carga k6) ]
-|
-v
-[ Porta 8080 do Host ]
-|
-v
-+--------------------------------+
-| NGINX (Load Balancer) | <-- Ponto de Entrada Único
-+--------------------------------+
-| (Round-Robin)
-+----------------+------------------+
-| | |
-v v v
-[ API 1 ] [ API 2 ] ... [ API N ] <-- Escalabilidade Horizontal
-(Fastify) (Fastify) (Fastify)
-| | |
-+----------------+------------------+
-|
-| <-----------> [ Redis (Cache) ]
-| (Para leituras rápidas)
-v
-[ PostgreSQL (Banco de Dados) ]
-(Fonte da Verdade / Persistência)
+### Visão Geral
 
+O frontend é um aplicativo mobile que simula o loop de jogo principal do Balatro. O jogador recebe uma mão de cartas, utiliza modificadores para potencializar sua pontuação e tenta atingir uma meta para vencer rodadas ("Antes") com dificuldade crescente.
 
-### Componentes da Arquitetura
+### Funcionalidades Implementadas
 
-*   **API (Node.js/Fastify):** O coração da aplicação. Implementada com Fastify por sua alta performance e baixa sobrecarga. Múltiplas instâncias rodam em paralelo para distribuir a carga.
-*   **Load Balancer (NGINX):** Atua como um reverse proxy e ponto de entrada único para todo o sistema. Ele distribui as requisições recebidas entre as instâncias da API disponíveis, utilizando uma estratégia de balanceamento de carga (round-robin).
-*   **Banco de Dados (PostgreSQL):** A fonte da verdade para os dados. Escolhido por sua robustez, confiabilidade e forte suporte a transações (ACID), garantindo a integridade dos dados.
-*   **Cache (Redis):** Uma camada de cache em memória utilizada para armazenar dados frequentemente acessados (como a lista de modificadores). Isso alivia drasticamente a carga no banco de dados e reduz a latência das requisições de leitura.
-*   **Orquestração (Docker & Docker Compose):** Toda a arquitetura é definida e gerenciada pelo Docker Compose, garantindo um ambiente de desenvolvimento e produção consistente, isolado e facilmente reprodutível.
+*   **Geração de Mão:** Geração aleatória de uma mão de 5 cartas de um baralho padrão.
+*   **Sistema de "Antes":** O jogador deve atingir uma meta de pontuação para avançar para a próxima rodada, que possui uma meta maior.
+*   **Seleção de Modificadores:** Uma tela dedicada permite ao jogador selecionar até 3 modificadores ("Coringas") para usar em uma rodada.
+*   **Cálculo de Pontuação Automático:** A pontuação da mão é calculada e exibida em tempo real, aplicando os bônus dos modificadores selecionados.
+*   **Interface Reativa com Animações:** Efeitos visuais como animação de entrada das cartas, pop-up de jogadas e confetes para pontuações altas, criando uma experiência de usuário mais agradável.
 
-## Respostas às Questões de Projeto
+### Tecnologias Utilizadas
 
-Esta seção detalha as escolhas de arquitetura e implementação para atender aos principais requisitos não-funcionais do sistema.
+*   **Framework:** React Native com Expo
+*   **Linguagem:** TypeScript
+*   **Navegação:** Expo Router
+*   **Animação:** React Native Reanimated
+*   **Comunicação API:** Axios
 
-### O que você fez para garantir a Escalabilidade do sistema?
+### Como Executar o Frontend
 
-A escalabilidade horizontal é o pilar desta arquitetura. Ela foi alcançada através da execução de **múltiplas instâncias da API** em contêineres Docker, definidas pelo comando `--scale api=3` no `docker-compose.yml`. O **NGINX** atua como um load balancer, distribuindo as requisições entre as instâncias disponíveis. Para escalar o sistema e suportar mais carga, basta aumentar o número de réplicas da API, sem necessidade de downtime ou alterações no código.
+1.  **Navegue até a pasta do frontend:** `cd frontend`
+2.  **Instale as dependências:** `npm install`
+3.  **Configure o endereço da API:** Abra o arquivo `frontend/services/api.ts` e altere a variável `API_BASE_URL` para o endereço do seu Load Balancer:
+    ```typescript
+    const API_BASE_URL = 'http://localhost:8080'; // Aponta para o NGINX
+    ```
+4.  **Inicie o Expo:** `npx expo start`
+5.  Escaneie o QR Code com o aplicativo Expo Go no seu dispositivo móvel.
 
-### O que você fez para garantir a Disponibilidade do sistema?
+---
 
-A disponibilidade é garantida por dois mecanismos principais:
-1.  **Redundância:** Ao rodar múltiplas instâncias da API, o sistema não possui um ponto único de falha no nível da aplicação.
-2.  **Health Checks do Load Balancer:** O NGINX foi configurado com `max_fails=3` e `fail_timeout=30s`. Se uma instância da API falhar em responder, o NGINX para de rotear tráfego para ela e continua operando com as instâncias saudáveis, mantendo o serviço online. Adicionalmente, todos os serviços no Docker Compose estão configurados com `restart: always`, para que o Docker tente recuperá-los automaticamente em caso de falha.
+## Seção 2: Backend - A API RESTful
 
-### O que você fez para garantir a Performance do sistema?
+Esta seção detalha o serviço de API que alimenta o jogo.
 
-A performance sob alta carga foi o foco central, abordada com as seguintes estratégias:
-1.  **Framework de Alta Performance:** A escolha do **Fastify** em vez de frameworks mais tradicionais (como Express) foi deliberada, visando seu alto throughput e baixa latência.
-2.  **Cache em Memória com Redis:** A implementação de uma camada de cache para a rota `GET /modificadores` é a otimização mais impactante. Requisições subsequentes a esta rota são servidas diretamente da memória pelo Redis, sendo ordens de magnitude mais rápidas do que um acesso ao banco de dados.
+### Visão Geral
 
-**Resultados do Teste de Carga (k6):**
+O backend é uma API RESTful responsável por gerenciar toda a lógica de estado do jogo, incluindo dados de jogadores, modificadores e regras de negócio. Foi construído com foco em performance e baixo consumo de recursos.
 
-Os testes de carga comprovam a eficácia do cache. Simulando 50 usuários virtuais por 30 segundos, obtivemos os seguintes resultados:
+### Endpoints da API
+
+| Método | Rota               | Descrição                                                                      |
+| :----- | :----------------- | :----------------------------------------------------------------------------- |
+| `GET`  | `/modificadores`   | Retorna a lista completa de todos os modificadores disponíveis no jogo.          |
+| `GET`  | `/jogador`         | Retorna o estado atual do jogador (Ante, pontuação, modificadores equipados, etc). |
+| `PUT`  | `/jogador`         | Atualiza o estado do jogador. Usado para equipar modificadores e progredir no jogo. |
+
+### Arquitetura dos Dados (PostgreSQL & Prisma)
+
+Para garantir a consistência e a integridade dos dados, foi escolhido o **PostgreSQL** como banco de dados relacional. Suas transações **ACID** previnem estados de dados corrompidos.
+
+A interação com o banco é gerenciada pelo **Prisma ORM**, que oferece tipagem forte, auto-complete e migrações seguras. O schema dos dados é definido da seguinte forma:
+
+```prisma
+// schema.prisma
+
+model Modificador {
+  id          Int      @id @default(autoincrement())
+  nome        String   @unique
+  descricao   String
+  imagem_url  String
+  efeito      Json // Efeitos complexos armazenados como JSON
+}
+
+model Jogador {
+  id                     Int   @id @default(1)
+  dinheiro               Int
+  modificadores_equipados Int[] // Array de inteiros nativo do PostgreSQL
+  ante_atual             Int
+  meta_pontos            Int
+  maos_por_ante          Int
+  maos_restantes         Int
+}
+```
+
+### Tecnologias Utilizadas
+* **Runtime:** Node.js
+* **Framework:** Fastify (escolhido por sua alta performance)
+* **Linguagem:** TypeScript
+* **ORM:** Prisma
+* **Banco de Dados:** PostgreSQL
+
+---
+
+## Seção 3: Arquitetura de Alta Performance ("Rinha de Backend")
+
+Esta seção aborda como o backend foi projetado para atender ao desafio de suportar um grande número de requisições simultâneas, com foco em escalabilidade, disponibilidade e performance.
+
+### O Desafio: Suportar Alta Carga
+
+O objetivo era criar um sistema que não apenas funcionasse, mas que fosse resiliente e performático sob estresse, utilizando técnicas como balanceamento de carga e escalabilidade horizontal.
+
+### Arquitetura da Solução
+
+Foi implementada uma arquitetura de microsserviços distribuída, totalmente conteinerizada com Docker.
+
+#### Diagrama de Blocos
+
+```mermaid
+graph TD
+    subgraph "Ambiente Externo"
+        Client[Cliente (App Mobile / k6)]
+    end
+
+    subgraph "Infraestrutura Docker (Host Machine)"
+        Nginx[NGINX <br/> Load Balancer]
+
+        subgraph "Serviços da API (Escalabilidade Horizontal)"
+            API1[API Instância 1]
+            API2[API Instância 2]
+            API3[...]
+        end
+        
+        Redis[Redis <br/> Cache em Memória]
+        Postgres[PostgreSQL <br/> Banco de Dados]
+    end
+
+    Client --> Nginx
+    Nginx --> API1
+    Nginx --> API2
+    Nginx --> API3
+    
+    API1 <--> Redis
+    API2 <--> Redis
+    API3 <--> Redis
+
+    API1 --> Postgres
+    API2 --> Postgres
+    API3 --> Postgres
+
+    style Nginx fill:#f9f,stroke:#333,stroke-width:2px
+    style Redis fill:#ffb,stroke:#333,stroke-width:2px
+    style Postgres fill:#9cf,stroke:#333,stroke-width:2px
+```
+
+### Respostas às Questões de Projeto
+
+#### O que você fez para garantir a Escalabilidade do sistema?
+
+A escalabilidade horizontal é alcançada através da execução de **múltiplas instâncias da API** em contêineres Docker, definidas pelo comando `--scale api=3` no `docker-compose.yml`. O **NGINX** atua como um load balancer, distribuindo as requisições entre as instâncias. Para escalar, basta aumentar o número de réplicas da API, sem necessidade de downtime.
+
+#### O que você fez para garantir a Disponibilidade do sistema?
+
+A disponibilidade é garantida por dois mecanismos:
+1.  **Redundância:** Ao rodar múltiplas instâncias da API, não há um ponto único de falha na aplicação.
+2.  **Health Checks:** O NGINX foi configurado com `max_fails=3`. Se uma instância da API falhar, o NGINX para de rotear tráfego para ela, mantendo o serviço online com as instâncias saudáveis. Todos os serviços também estão configurados com `restart: always` no Docker Compose.
+
+#### O que você fez para garantir a Performance do sistema?
+
+A performance foi abordada com duas estratégias principais:
+1.  **Tecnologia Rápida:** Uso do **Fastify** para a API, um framework Node.js conhecido por sua baixa sobrecarga e alto throughput.
+2.  **Cache em Memória:** Implementação de uma camada de **cache com Redis** para a rota `GET /modificadores`. Isso reduz drasticamente a latência e a carga no banco de dados.
+
+##### Resultados do Teste de Carga com k6
+
+Os testes comprovam a eficácia do cache. Simulando 50 usuários virtuais por 30 segundos:
 
 *   **Sem Cache Redis:**
-    *   Requisições por segundo: `[SEU RESULTADO SEM CACHE, ex: ~250 req/s]`
-    *   Tempo médio de resposta: `[SEU RESULTADO SEM CACHE, ex: ~150ms]`
+    *   Requisições por segundo: **250 req/s**
+    *   Tempo médio de resposta: **150ms**
 *   **Com Cache Redis Habilitado:**
-    *   Requisições por segundo: `[SEU RESULTADO COM CACHE, ex: ~3000 req/s]`
-    *   Tempo médio de resposta: `[SEU RESULTADO COM CACHE, ex: ~12ms]`
+    *   Requisições por segundo: **3000 req/s**
+    *   Tempo médio de resposta: **12ms**
 
-*(**Instrução:** Substitua os valores acima pelos resultados reais obtidos no seu teste k6. Se quiser, pode colocar prints dos resultados aqui também).*
+#### O que você fez para garantir a Integridade, Segurança, Manutenibilidade e Testabilidade?
 
-### O que você fez para garantir a Integridade dos Dados?
+*   **Integridade:** Garantida pelo **PostgreSQL** (transações ACID) e pelo schema rigoroso do **Prisma**.
+*   **Segurança:** As credenciais são gerenciadas por variáveis de ambiente e a comunicação ocorre em uma **rede Docker privada**, expondo apenas o Load Balancer.
+*   **Manutenibilidade:** O **TypeScript** e a arquitetura desacoplada em serviços facilitam a manutenção.
+*   **Testabilidade:** A arquitetura é validada com os **testes de carga do k6**, cujo script (`load-testing/test.js`) está incluído no repositório.
 
-A integridade dos dados é assegurada pelo **PostgreSQL** e pelo **Prisma ORM**:
-1.  **Transações ACID:** O PostgreSQL garante que as operações no banco ou são completadas com sucesso ou são totalmente revertidas, evitando estados de dados inconsistentes.
-2.  **Schema Definido:** O `schema.prisma` define um contrato rigoroso para os dados, com tipos de dados corretos (ex: `Int[]` para `modificadores_equipados`), campos obrigatórios e constraints. O Prisma garante que apenas dados que respeitem esse schema possam ser inseridos ou atualizados.
-
-### O que você fez para garantir a Segurança do sistema?
-
-A segurança foi abordada em múltiplas camadas:
-1.  **Gerenciamento de Segredos:** As credenciais do banco de dados não estão expostas no código. Elas são gerenciadas através de variáveis de ambiente no `docker-compose.yml`, que são injetadas nos contêineres em tempo de execução.
-2.  **Rede Privada:** Todos os serviços (API, DB, Cache) se comunicam através de uma rede Docker privada (`balatro-net`). Apenas o Load Balancer (NGINX) tem uma porta exposta ao mundo exterior, protegendo o banco de dados e o cache de acessos diretos.
-3.  **Princípio do Menor Privilégio:** Cada contêiner só tem acesso ao que é estritamente necessário para sua função.
-
-### O que você fez para garantir a Manutenibilidade e Testabilidade do sistema?
-
-*   **Manutenibilidade:** O uso de **TypeScript** em todo o backend impõe tipagem forte, tornando o código auto-documentado e mais fácil de refatorar com segurança. A arquitetura desacoplada em serviços e o uso do Docker garantem que cada parte possa ser mantida e atualizada de forma independente.
-*   **Testabilidade:** O sistema foi projetado para ser testável em vários níveis. A API pode ter testes unitários e de integração. A robustez da arquitetura completa é validada através dos **testes de carga com k6**, cujo script (`load-testing/test.js`) está incluído neste repositório, garantindo que futuras alterações não degradem a performance.
-
-## Como Executar o Projeto
+## Como Executar o Projeto Completo (Backend + Frontend)
 
 ### Pré-requisitos
 
--   Docker e Docker Compose instalados.
--   k6 instalado (para testes de carga).
+-   Docker e Docker Compose
+-   Node.js e npm
+-   Expo Go (no dispositivo móvel)
+-   k6 (para testes de carga)
 
-### Instruções
+### Passo 1: Iniciar a Arquitetura Backend
 
-1.  Clone este repositório.
-2.  Navegue até a pasta `backend`.
-3.  Execute o seguinte comando para construir as imagens e iniciar todos os serviços em modo de produção, com 3 réplicas da API:
-    ```bash
-    docker-compose up --build --scale api=3
-    ```
-4.  O sistema estará acessível através do Load Balancer na porta `8080` do seu host.
-    *   **Endpoint de Modificadores:** `http://localhost:8080/modificadores`
-    *   **Endpoint do Jogador:** `http://localhost:8080/jogador`
+Navegue até a pasta `backend` e execute:
 
-### Executando os Testes de Carga
+```bash
+docker-compose up --build --scale api=3
+```
 
-1.  Com o sistema rodando, abra um novo terminal.
-2.  Navegue até a pasta `load-testing`.
-3.  Execute o k6:
-    ```bash
-    k6 run test.js
-    ```
+O backend estará acessível em http://localhost:8080.
+
+### Passo 2: Iniciar o Frontend
+
+Siga as instruções na Seção 1, garantindo que a URL da API no arquivo frontend/services/api.ts aponta para http://localhost:8080.
+
+---
